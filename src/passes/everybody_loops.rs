@@ -15,7 +15,7 @@ impl<'a> Visitor<'a> {
     fn new(checker: &'a mut PassController, use_panics: bool) -> Self {
         let loop_expr = match use_panics {
             false => parse_quote! { { loop {} } },
-            true => parse_quote! { { panic!("minimization") } }
+            true => parse_quote! { { panic!("minimization") } },
         };
         Self {
             current_path: Vec::new(),
@@ -24,21 +24,7 @@ impl<'a> Visitor<'a> {
             loop_expr,
         }
     }
-}
-
-impl VisitMut for Visitor<'_> {
-    fn visit_block_mut(&mut self, block: &mut syn::Block) {
-        // if block.stmts.as_slice().is_empty() {
-        //     return
-        // }
-        // if block == &self.loop_expr{
-        //     return
-        // }
-        // // .. else
-        // if self.checker.can_process(&self.current_path) {
-        //         *block = self.loop_expr.clone();
-        //         self.process_state = ProcessState::Changed;
-        // } 
+    fn enloop_fn(&mut self, block: &mut syn::Block, signature: &syn::Signature) {
         match block.stmts.as_slice() {
             [
                 syn::Stmt::Expr(
@@ -47,38 +33,66 @@ impl VisitMut for Visitor<'_> {
                     }),
                     _semi,
                 ),
-            ] if loop_body.stmts.is_empty() => {},
+            ] if loop_body.stmts.is_empty() => {}
             [
                 syn::Stmt::Expr(
                     syn::Expr::Macro(syn::ExprMacro {
-                        mac: syn::Macro{
-                            path,
-                            ..    
-                        }, ..
+                        mac: syn::Macro { path, .. },
+                        ..
                     }),
-                    _semi
-                )
-            ] if ["unreachable", "panic", "todo"].contains(&path.to_token_stream().to_string().as_str()) => {},
+                    _semi,
+                ),
+            ] if ["unreachable", "panic", "todo"]
+                .contains(&path.to_token_stream().to_string().as_str()) => {}
             // Empty bodies are empty already, no need to loopify them.
             [] => {}
             _ if self.checker.can_process(&self.current_path) => {
-                *block = self.loop_expr.clone();
+                match signature.output {
+                    syn::ReturnType::Default => block.stmts.clear(),
+                    _ => {
+                        *block = self.loop_expr.clone();
+                    }
+                };
                 self.process_state = ProcessState::Changed;
             }
             _ => {}
         }
     }
-
-    tracking!();
 }
 
+impl VisitMut for Visitor<'_> {
+    // fn visit_block_mut(&mut self, block: &mut syn::Block) {
+    //     self.enloop_block(block, None);
+    // }
+    fn visit_item_fn_mut(&mut self, item: &mut syn::ItemFn) {
+        self.current_path.push(item.sig.ident.to_string());
+        syn::visit_mut::visit_item_fn_mut(self, item);
+        self.enloop_fn(&mut item.block, &item.sig);
+        self.current_path.pop();
+    }
+    fn visit_impl_item_fn_mut(&mut self, item: &mut syn::ImplItemFn) {
+        self.current_path.push(item.sig.ident.to_string());
+        syn::visit_mut::visit_impl_item_fn_mut(self, item);
+        self.enloop_fn(&mut item.block, &item.sig);
+        self.current_path.pop();
+    }
 
-pub struct EverybodyLoops{
+    // tracking!();
+    // tracking!(visit_item_fn_mut);
+    // tracking!(visit_impl_item_fn_mut);
+    tracking!(visit_item_impl_mut);
+    tracking!(visit_item_mod_mut);
+    tracking!(visit_field_mut);
+    tracking!(visit_item_struct_mut);
+    tracking!(visit_item_trait_mut);
+}
+
+pub struct EverybodyLoops {
     use_panics: bool,
 }
-impl EverybodyLoops{
-    pub fn new(use_panics: bool) -> Self{
-        Self{use_panics}
+impl EverybodyLoops {
+    pub fn new(use_panics: bool) -> Self {
+        Self { use_panics }
     }
 }
 
