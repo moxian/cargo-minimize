@@ -108,9 +108,13 @@ pub struct Options {
     #[arg(skip)]
     pub no_delete_functions: bool,
 
-    /// Remove individual use statements manually, instead of relying on rustc lints output
+    /// Remove individual use statements manually, instead of relying on rustc lints output.
     #[arg(long)]
     pub bisect_delete_imports: bool,
+
+    /// Use `unreachable!()` instead of `loop {}` when stubbing out code.
+    #[arg(long)]
+    pub use_panics: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -144,10 +148,10 @@ pub fn minimize(options: Options, stop: Arc<AtomicBool>) -> Result<()> {
 
     let build = build::Build::new(&options)?;
 
-    let mut minimizer = Minimizer::new_glob_dir(options, build, stop)?;
+    let mut minimizer = Minimizer::new_glob_dir(options.clone(), build, stop)?;
 
     minimizer.run_passes([
-        passes::EverybodyLoops::default().boxed(),
+        passes::EverybodyLoops::new(options.use_panics).boxed(),
         passes::SplitUse::default().boxed(),
         passes::FieldDeleter::default().boxed(),
         passes::Privatize::default().boxed(),
@@ -194,6 +198,7 @@ impl Default for Options {
             ignore_file: Vec::new(),
             no_delete_functions: false,
             bisect_delete_imports: false,
+            use_panics: false,
         }
     }
 }
