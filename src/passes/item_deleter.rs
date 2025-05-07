@@ -1,7 +1,8 @@
 use quote::ToTokens;
 use syn::{
-    Item, ItemConst, ItemEnum, ItemExternCrate, ItemFn, ItemMacro, ItemMod, ItemStatic, ItemStruct,
-    ItemTrait, ItemTraitAlias, ItemType, ItemUnion, ItemUse, Signature, visit_mut::VisitMut,
+    ImplItem, Item, ItemConst, ItemEnum, ItemExternCrate, ItemFn, ItemMacro, ItemMod, ItemStatic,
+    ItemStruct, ItemTrait, ItemTraitAlias, ItemType, ItemUnion, ItemUse, Signature,
+    visit_mut::VisitMut,
 };
 
 use crate::processor::{Pass, PassController, ProcessState, SourceFile, tracking};
@@ -87,6 +88,29 @@ impl<'a> Visitor<'a> {
             _ => true,
         }
     }
+
+    fn consider_deleting_impl_item(&mut self, item: &ImplItem) -> bool {
+        match item {
+            ImplItem::Const(syn::ImplItemConst{ident, ..}) |
+            ImplItem::Fn(syn::ImplItemFn{sig:Signature{ident,..},..}) |
+            ImplItem::Type(syn::ImplItemType{ident, ..}) => {
+                self.current_path.push(ident.to_string());
+                let should_retain = self.should_retain_item();
+                self.current_path.pop();
+
+                should_retain
+            }
+            ImplItem::Macro(syn::ImplItemMacro{mac: syn::Macro{path, ..}, ..}) => {
+                self.current_path.push(path.to_token_stream().to_string());
+                let should_retain = self.should_retain_item();
+                self.current_path.pop();
+
+                should_retain
+            },
+            ImplItem::Verbatim(_) => true,
+            _ => true,
+        }
+    }
 }
 
 impl VisitMut for Visitor<'_> {
@@ -108,9 +132,19 @@ impl VisitMut for Visitor<'_> {
         self.current_path.pop();
     }
 
+    fn visit_item_impl_mut(&mut self, item_impl: &mut syn::ItemImpl) {
+        self.current_path
+            .push(item_impl.self_ty.clone().into_token_stream().to_string());
+
+        item_impl
+            .items
+            .retain(|item| self.consider_deleting_impl_item(item));
+
+        self.current_path.pop();
+    }
+
     tracking!(visit_item_fn_mut);
     tracking!(visit_impl_item_fn_mut);
-    tracking!(visit_item_impl_mut);
     tracking!(visit_field_mut);
     tracking!(visit_item_struct_mut);
 }
