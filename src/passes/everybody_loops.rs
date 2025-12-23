@@ -77,6 +77,22 @@ impl VisitMut for Visitor<'_> {
         self.current_path.pop();
     }
 
+    fn visit_trait_item_fn_mut(&mut self, item: &mut syn::TraitItemFn) {
+        self.current_path.push(item.sig.ident.to_string());
+        syn::visit_mut::visit_trait_item_fn_mut(self, item);
+        match item.default.as_mut() {
+            None => {
+                if self.checker.can_process(&self.current_path) {
+                    item.default = Some(self.loop_expr.clone());
+                    self.process_state = ProcessState::Changed;
+                }
+            }
+            Some(block) => self.enloop_fn(block, &item.sig),
+        };
+        // self.enloop_fn(&mut item.block, &item.sig);
+        self.current_path.pop();
+    }
+
     // tracking!();
     // tracking!(visit_item_fn_mut);
     // tracking!(visit_impl_item_fn_mut);
