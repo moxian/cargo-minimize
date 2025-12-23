@@ -141,7 +141,7 @@ impl Pass for DeleteUnusedFunctions {
 
 #[derive(Debug)]
 struct Unused {
-    line: usize,
+    line: Range<usize>,
     column: Range<usize>,
 }
 
@@ -151,10 +151,10 @@ impl Unused {
 
         assert_eq!(start.line, end.line);
 
-        let line_matches = self.line == start.line;
-        let column_matches = self.column.start <= start.column && self.column.end >= end.column;
+        let is_contained = (self.line.start, self.column.start) <= (start.line, start.column)
+            && (end.line, end.column) <= (self.line.end, self.column.end);
 
-        line_matches && column_matches
+        is_contained
     }
 }
 
@@ -188,10 +188,10 @@ impl<'a> FindUnusedFunction<'a> {
 
                 let span = &diag.spans[0];
 
-                assert_eq!(
-                    span.line_start, span.line_end,
-                    "encountered multiline span in dead_code"
-                );
+                // assert_eq!(
+                //     span.line_start, span.line_end,
+                //     "encountered multiline span in dead_code"
+                // );
 
                 // When the project directory is remapped, the path may be absolute or generally have some prefix.
                 if !file.path_no_fs_interact().ends_with(&span.file_name) {
@@ -199,7 +199,7 @@ impl<'a> FindUnusedFunction<'a> {
                 }
 
                 Some(Unused {
-                    line: span.line_start,
+                    line: span.line_start..span.line_end,
                     column: (span.column_start - 1)..(span.column_end - 1),
                 })
             })
