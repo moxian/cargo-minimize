@@ -1,6 +1,6 @@
 use quote::ToTokens;
 use syn::{
-    ImplItem, Item, ItemConst, ItemEnum, ItemExternCrate, ItemFn, ItemMacro, ItemMod, ItemStatic,
+    ImplItem, Item, ItemConst, ItemEnum, ItemExternCrate, ItemFn, ItemImpl, ItemMacro, ItemMod, ItemStatic,
     ItemStruct, ItemTrait, ItemTraitAlias, ItemType, ItemUnion, ItemUse, Signature,
     visit_mut::VisitMut,
 };
@@ -11,6 +11,18 @@ struct Visitor<'a> {
     current_path: Vec<String>,
     checker: &'a mut PassController,
     process_state: ProcessState,
+}
+
+fn item_impl_id(impl_: &ItemImpl) -> String{
+    format!(
+        "({}) for ({})",
+        impl_
+            .trait_
+            .as_ref()
+            .map(|(_, tr, _)| tr.into_token_stream().to_string())
+            .unwrap_or_default(),
+        impl_.self_ty.clone().into_token_stream()
+    )
 }
 
 impl<'a> Visitor<'a> {
@@ -33,15 +45,7 @@ impl<'a> Visitor<'a> {
     fn consider_deleting_item(&mut self, item: &Item) -> bool {
         match item {
             Item::Impl(impl_) => {
-                self.current_path.push(format!(
-                    "({}) for ({})",
-                    impl_
-                        .trait_
-                        .as_ref()
-                        .map(|(_, tr, _)| tr.into_token_stream().to_string())
-                        .unwrap_or_default(),
-                    impl_.self_ty.clone().into_token_stream()
-                ));
+                self.current_path.push(item_impl_id(&impl_));
 
                 let should_retain = self.should_retain_item();
 
@@ -134,7 +138,7 @@ impl VisitMut for Visitor<'_> {
 
     fn visit_item_impl_mut(&mut self, item_impl: &mut syn::ItemImpl) {
         self.current_path
-            .push(item_impl.self_ty.clone().into_token_stream().to_string());
+            .push(item_impl_id(item_impl));
 
         item_impl
             .items
