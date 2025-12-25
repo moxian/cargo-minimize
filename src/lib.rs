@@ -159,7 +159,10 @@ pub fn minimize(options: Options, stop: Arc<AtomicBool>) -> Result<()> {
 
     minimizer.delete_dead_code().context("deleting dead code")?;
 
-    minimizer.run_passes([passes::ItemDeleter::default().boxed()])?;
+    minimizer.run_passes([
+        passes::DefaultImpl::new(options.use_panics).boxed(),
+        passes::ItemDeleter::default().boxed(),
+    ])?;
 
     Ok(())
 }
