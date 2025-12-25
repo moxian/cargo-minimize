@@ -153,6 +153,7 @@ pub fn minimize(options: Options, stop: Arc<AtomicBool>) -> Result<()> {
     minimizer.run_passes([
         passes::EverybodyLoops::new(options.use_panics).boxed(),
         passes::SplitUse::default().boxed(),
+        passes::CanonicalizeWhere::default().boxed(),
         passes::FieldDeleter::default().boxed(),
         passes::Privatize::default().boxed(),
     ])?;
@@ -162,6 +163,7 @@ pub fn minimize(options: Options, stop: Arc<AtomicBool>) -> Result<()> {
     minimizer.run_passes([
         passes::DefaultImpl::new(options.use_panics).boxed(),
         passes::ItemDeleter::default().boxed(),
+        passes::RelaxBounds::default().boxed(),
     ])?;
 
     Ok(())
