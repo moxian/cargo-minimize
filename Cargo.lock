@@ -348,9 +348,9 @@ checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
 
 [[package]]
 name = "genemichaels-lib"
-version = "0.7.4"
+version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3aeeff41ea37e2028dd90308cd953216ab4765b4d858cdba50ab7354c938c4b5"
+checksum = "27b1b26c7fa21f21c152fe4981e88be592304ad00ecb6aef28bf36343a770487"
 dependencies = [
  "cargo-manifest",
  "derive_more",
