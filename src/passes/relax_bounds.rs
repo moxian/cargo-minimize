@@ -47,7 +47,15 @@ impl<'a> Visitor<'a> {
                 }
                 self.current_path.pop();
             },
-            TypeParamBound::Lifetime(_) | TypeParamBound::PreciseCapture(_) |TypeParamBound::Verbatim(_) => {},
+            TypeParamBound::Lifetime(lt) => {
+                self.current_path.push(format!("'{}", lt.ident));
+                if self.checker.can_process(&self.current_path){
+                    should_retain = false;
+                    self.process_state = ProcessState::Changed;
+                }
+                self.current_path.pop();
+             }
+             , TypeParamBound::PreciseCapture(_) |TypeParamBound::Verbatim(_) => {},
             _ => {}
         }
         should_retain
@@ -69,11 +77,9 @@ impl VisitMut for Visitor<'_> {
     fn visit_predicate_type_mut(&mut self, pred: &mut syn::PredicateType){
         self.current_path.push(pred.bounded_ty.to_token_stream().to_string());
 
-        // println!("old bounds: {:?}", pred.to_token_stream().to_string());
         pred.bounds = pred.bounds.iter().filter(|bound| 
             self.should_retain_bound(bound)
         ).cloned().collect();
-        // println!("new    bounds: {:?}", pred.to_token_stream().to_string());
 
         self.current_path.pop();
     }
@@ -96,10 +102,7 @@ impl VisitMut for Visitor<'_> {
         self.current_path.pop();
     }
 
-    // fn visit_item_struct_mut(&mut self, item: &mut ItemStruct){
-    // }
-
-    tracking!();
+     tracking!();
     // tracking!(visit_item_fn_mut);
     // tracking!(visit_impl_item_fn_mut);
     // tracking!(visit_item_impl_mut);
