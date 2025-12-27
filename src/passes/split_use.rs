@@ -1,7 +1,6 @@
 use std::ops::DerefMut;
 
 use crate::processor::{Pass, PassController, ProcessState, SourceFile, tracking};
-use quote::ToTokens;
 
 use syn::{Item, ItemUse, UseName, UsePath, UseRename, UseTree, visit_mut::VisitMut};
 

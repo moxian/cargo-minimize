@@ -1,11 +1,11 @@
 use quote::ToTokens;
 use syn::{
-    ImplItem, Item, ItemConst, ItemEnum, ItemExternCrate, ItemFn, ItemImpl, ItemMacro, ItemMod, ItemStatic,
+    ImplItem, Item, ItemConst, ItemEnum, ItemExternCrate, ItemFn, ItemMacro, ItemMod, ItemStatic,
     ItemStruct, ItemTrait, ItemTraitAlias, ItemType, ItemUnion, ItemUse, Signature,
     visit_mut::VisitMut,
 };
 
-use crate::processor::{Pass, PassController, ProcessState, SourceFile, tracking};
+use crate::processor::{Pass, PassController, ProcessState, SourceFile, tracking, AstPathable};
 
 struct Visitor<'a> {
     current_path: Vec<String>,
@@ -13,17 +13,6 @@ struct Visitor<'a> {
     process_state: ProcessState,
 }
 
-fn item_impl_id(impl_: &ItemImpl) -> String{
-    format!(
-        "({}) for ({})",
-        impl_
-            .trait_
-            .as_ref()
-            .map(|(_, tr, _)| tr.into_token_stream().to_string())
-            .unwrap_or_default(),
-        impl_.self_ty.clone().into_token_stream()
-    )
-}
 
 impl<'a> Visitor<'a> {
     fn new(checker: &'a mut PassController) -> Self {
@@ -45,7 +34,7 @@ impl<'a> Visitor<'a> {
     fn consider_deleting_item(&mut self, item: &Item) -> bool {
         match item {
             Item::Impl(impl_) => {
-                self.current_path.push(item_impl_id(&impl_));
+                self.current_path.push(impl_.ast_path_segment());
 
                 let should_retain = self.should_retain_item();
 
@@ -138,7 +127,7 @@ impl VisitMut for Visitor<'_> {
 
     fn visit_item_impl_mut(&mut self, item_impl: &mut syn::ItemImpl) {
         self.current_path
-            .push(item_impl_id(item_impl));
+            .push(item_impl.ast_path_segment());
 
         item_impl
             .items

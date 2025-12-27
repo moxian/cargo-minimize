@@ -265,6 +265,29 @@ impl Minimizer {
     }
 }
 
+/// Trait to generate path segments for AstPath that would
+/// (hopefully) avoid collisions
+pub(crate) trait AstPathable {
+    fn ast_path_segment(&self) -> String;
+}
+impl AstPathable for syn::Ident {
+    fn ast_path_segment(&self) -> String {
+        self.to_string()
+    }
+}
+impl AstPathable for syn::ItemImpl {
+    fn ast_path_segment(&self) -> String {
+        use quote::ToTokens;
+        format!(
+            "({}) for ({})",
+            self.trait_
+                .as_ref()
+                .map(|(_, tr, _)| tr.into_token_stream().to_string())
+                .unwrap_or_default(),
+            self.self_ty.clone().into_token_stream()
+        )
+    }
+}
 macro_rules! tracking {
     () => {
         tracking!(visit_item_fn_mut);
@@ -277,37 +300,42 @@ macro_rules! tracking {
     };
     (visit_item_fn_mut) => {
         fn visit_item_fn_mut(&mut self, func: &mut syn::ItemFn) {
-            self.current_path.push(func.sig.ident.to_string());
+            use crate::processor::AstPathable;
+            self.current_path.push(func.sig.ident.ast_path_segment());
             syn::visit_mut::visit_item_fn_mut(self, func);
             self.current_path.pop();
         }
     };
     (visit_impl_item_fn_mut) => {
         fn visit_impl_item_fn_mut(&mut self, method: &mut syn::ImplItemFn) {
-            self.current_path.push(method.sig.ident.to_string());
+            use crate::processor::AstPathable;
+            self.current_path.push(method.sig.ident.ast_path_segment());
             syn::visit_mut::visit_impl_item_fn_mut(self, method);
             self.current_path.pop();
         }
     };
     (visit_item_impl_mut) => {
         fn visit_item_impl_mut(&mut self, item: &mut syn::ItemImpl) {
+            use crate::processor::AstPathable;
             self.current_path
-                .push(item.self_ty.clone().into_token_stream().to_string());
+                .push(item.ast_path_segment());
             syn::visit_mut::visit_item_impl_mut(self, item);
             self.current_path.pop();
         }
     };
     (visit_item_mod_mut) => {
         fn visit_item_mod_mut(&mut self, module: &mut syn::ItemMod) {
-            self.current_path.push(module.ident.to_string());
+            use crate::processor::AstPathable;
+            self.current_path.push(module.ident.ast_path_segment());
             syn::visit_mut::visit_item_mod_mut(self, module);
             self.current_path.pop();
         }
     };
     (visit_field_mut) => {
         fn visit_field_mut(&mut self, field: &mut syn::Field) {
+            use crate::processor::AstPathable;
             if let Some(ident) = &field.ident {
-                self.current_path.push(ident.to_string());
+                self.current_path.push(ident.ast_path_segment());
                 syn::visit_mut::visit_field_mut(self, field);
                 self.current_path.pop();
             }
@@ -315,14 +343,16 @@ macro_rules! tracking {
     };
     (visit_item_struct_mut) => {
         fn visit_item_struct_mut(&mut self, struct_: &mut syn::ItemStruct) {
-            self.current_path.push(struct_.ident.to_string());
+            use crate::processor::AstPathable;
+            self.current_path.push(struct_.ident.ast_path_segment());
             syn::visit_mut::visit_item_struct_mut(self, struct_);
             self.current_path.pop();
         }
     };
     (visit_item_trait_mut) => {
         fn visit_item_trait_mut(&mut self, trait_: &mut syn::ItemTrait) {
-            self.current_path.push(trait_.ident.to_string());
+            use crate::processor::AstPathable;
+            self.current_path.push(trait_.ident.ast_path_segment());
             syn::visit_mut::visit_item_trait_mut(self, trait_);
             self.current_path.pop();
         }
